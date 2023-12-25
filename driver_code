@@ -1,0 +1,105 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+
+class LogisticRegressionLDA:
+    def __init__(self):
+        self.W = None
+
+    def normalize_data(self, df):
+        for col in df:
+            df[col] = (df[col] - df[col].min()) / (df[col].max() - df[col].min())
+        return df
+
+    def split_data(self, df, test_size):
+        x_train = df.iloc[:-test_size, :-1]
+        x_test = df.iloc[-test_size:, :-1]
+        y_train = df.iloc[:-test_size, -1]
+        y_test = df.iloc[-test_size:, -1]
+        return x_train, x_test, y_train, y_test
+
+    def fit_lda(self, X, y):
+        cov_i = np.linalg.inv((X.cov()))
+        X1 = X[y == 1]
+        X0 = X[y == 0]
+        p1 = len(X1) / len(X)
+        p0 = len(X0) / len(X)
+        m1 = X1.mean()
+        m0 = X0.mean()
+        w0 = np.log(p1 / p0) - 0.5 * np.dot(np.dot(m1, cov_i), m1) + 0.5 * np.dot(np.dot(m0, cov_i), m0)
+        w = np.dot((m1 - m0), cov_i)
+        self.W = np.append(w0, w)
+
+    def predict(self, X):
+        w0 = self.W[0]
+        w = self.W[1:]
+        pred = X.dot(w) + w0
+        return [1 if p >= 0.5 else 0 for p in pred]
+
+    def performance_metrics(self, y_actual, y_pred):
+        tp, fp, tn, fn = 0, 0, 0, 0
+        for actual, predict in zip(y_actual, y_pred):
+            if actual == 1 and predict == 1:
+                tp += 1
+            elif actual == 1 and predict == 0:
+                fn += 1
+            elif actual == 0 and predict == 1:
+                fp += 1
+            elif actual == 0 and predict == 0:
+                tn += 1
+
+        sensitivity = tp / (tp + fn)
+        specificity = tn / (tn + fp)
+        precision = tp / (tp + fp)
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
+        f_measure = 2 * precision * sensitivity / (sensitivity + precision)
+
+        print('\nTP TN FP FN')
+        print(tp, tn, fp, fn)
+        print('accuracy:', '%.2f' % accuracy)
+        print('precision:', '%.2f' % precision)
+        print('f_measure:', '%.2f' % f_measure)
+        print('sensitivity:', '%.2f' % sensitivity, '; specificity:', '%.2f' % specificity)
+        return tp, fp, tn, fn
+
+    def roc_curve_plot(self, y_actual, y_pred):
+        fpr, tpr, _ = roc_curve(y_actual, y_pred)
+        roc_auc = auc(fpr, tpr)
+
+        plt.figure()
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (AUC = %0.2f)' % roc_auc)
+        plt.xlabel('False Positive Rate ->')
+        plt.ylabel('True Positive Rate ->')
+        plt.title('ROC Curve')
+        plt.legend(loc='lower right')
+        plt.show()
+
+    def decision_boundary_plot(self, X, y):
+        db = [(-self.W[0] - self.W[1] * i) / self.W[2] for i in X.iloc[:, 0]]
+        plt.figure(figsize=(5, 5))
+        plt.scatter(X[y == 0].iloc[:, 0], X[y == 0].iloc[:, 1], c='b', marker='x', label='Negative class')
+        plt.scatter(X[y == 1].iloc[:, 0], X[y == 1].iloc[:, 1], c='r', marker='x', label='Positive class')
+        plt.plot(X.iloc[:, 0], db, c='black', label='Decision boundary')
+        plt.xlabel('x1')
+        plt.ylabel('x2')
+        plt.grid(False)
+        plt.title('Decision Boundary')
+        plt.legend()
+        plt.show()
+
+
+# Data Preparation
+data = pd.read_csv('/content/drive/MyDrive/DM/assignment06/data1.csv', header=None)
+df = data.copy().sample(frac=1).reset_index(drop=True)
+
+# Create and use Logistic Regression LDA model
+logreg_lda = LogisticRegressionLDA()
+df_normalized = logreg_lda.normalize_data(df)
+x_train, x_test, y_train, y_test = logreg_lda.split_data(df_normalized, test_size=len(df)//8)
+
+logreg_lda.fit_lda(x_train, y_train)
+y_train_pred = logreg_lda.predict(x_train)
+logreg_lda.performance_metrics(y_train, y_train_pred)
+logreg_lda.roc_curve_plot(y_train, y_train_pred)
+logreg_lda.decision_boundary_plot(x_train, y_train)
