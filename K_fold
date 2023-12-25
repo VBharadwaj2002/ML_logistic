@@ -1,0 +1,36 @@
+## K-fold cross validation
+
+X = ndf.iloc[:, 2:-1]
+y = ndf.iloc[:, -1]
+
+def kfold(X, y, k):
+    fold_size = int(X.shape[0]/k)
+    X_train = []
+    y_train = []
+    X_test = []
+    y_test = []
+    for i in range(k):
+        X_test.append(X[i*fold_size:(i+1)*fold_size])
+        y_test.append(y[i*fold_size:(i+1)*fold_size])
+        X_train.append(X.drop(X.index[i*fold_size:(i+1)*fold_size]))
+        y_train.append(y.drop(y.index[i*fold_size:(i+1)*fold_size]))
+        # cost
+    return X_train, y_train, X_test, y_test
+
+X3_train, y3_train, X3_test, y3_test = kfold(X, y, k = 5)
+
+# print(X3_train[0].shape)
+# print(y3_train[0].shape)
+# print(X3_test[0].shape)
+# print(y3_test[0].shape)
+X3_train = np.c_[np.ones(len(X3_train[0])), X3_train[0]]
+X3_test = np.c_[np.ones(len(X3_test[0])), X3_test[0]]
+w3 = np.zeros(X3_train.shape[1])
+alpha = 0.01
+iterations = 100
+w3, cost_history3, it = grad(X3_train, y3_train[0], w3, alpha, iterations)
+print('Final weights:',w3)
+# print(cost_history3[-1])
+y_pred3= X3_test.dot(w3)
+rmse=np.sqrt(np.mean((y_pred3- y3_test[0])**2))
+print('\nPerformance of K-fold Model in Linear Regression: RMSE-',rmse)
